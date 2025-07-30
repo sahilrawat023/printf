@@ -1,38 +1,24 @@
 import Document from '../models/Document.js';
-import cloudinary from '../config/cloudinary.js';
 
+// Upload document and save to DB
 export const uploadDocument = async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-    const upload = await cloudinary.uploader.upload_stream({ resource_type: 'auto' }, (error, result) => {
-      if (error) throw error;
-      const doc = new Document({
-        userId: req.user._id,
-        fileUrl: result.secure_url,
-        fileName: req.file.originalname,
-      });
-      doc.save();
-      res.status(201).json({ document: doc });
+    if (!req.file || !req.file.path) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { shopId, printPreferences } = req.body;
+
+    const document = await Document.create({
+      userId: req.user._id,
+      shopId,
+      printPreferences: printPreferences ? JSON.parse(printPreferences) : undefined,
+      fileUrl: req.file.path,
+      fileName: req.file.originalname
     });
-    upload.end(req.file.buffer);
+
+    res.status(201).json(document);
   } catch (err) {
-    res.status(400).json({ error: 'Failed to upload document' });
+    res.status(500).json({ error: 'Failed to upload document', details: err.message });
   }
 };
-
-export const getUserDocuments = async (req, res) => {
-  const docs = await Document.find({ userId: req.user._id });
-  res.json({ documents: docs });
-};
-
-export const deleteDocument = async (req, res) => {
-  try {
-    const doc = await Document.findById(req.params.id);
-    if (!doc) return res.status(404).json({ error: 'Document not found' });
-    await cloudinary.uploader.destroy(doc.fileUrl);
-    await doc.deleteOne();
-    res.json({ success: true });
-  } catch (err) {
-    res.status(400).json({ error: 'Failed to delete document' });
-  }
-}; 

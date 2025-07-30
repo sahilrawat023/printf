@@ -1,12 +1,14 @@
 import express from 'express';
-import { placeOrder, getUserOrders, getShopOrders, updateOrderStatus } from '../controllers/orderController.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { createOrder, verifyOrderPayment, getUserOrders, getShopOrders, updateOrderStatus } from '../controllers/orderController.js';
+import verifyJWT from '../middleware/verifyJWT.js';
+import authorizeRole from '../middleware/authorizeRole.js';
 
 const router = express.Router();
 
-router.post('/', requireAuth, placeOrder);
-router.get('/user', requireAuth, getUserOrders);
-router.get('/shop', requireAuth, requireRole('shopOwner'), getShopOrders);
-router.patch('/:id/status', requireAuth, requireRole('shopOwner'), updateOrderStatus);
+router.post('/create', verifyJWT, authorizeRole(['customer']), createOrder);
+router.post('/verify', verifyJWT, authorizeRole(['customer']), verifyOrderPayment);
+router.get('/user', verifyJWT, authorizeRole(['customer']), getUserOrders);
+router.get('/shop', verifyJWT, authorizeRole(['shopOwner', 'admin']), getShopOrders);
+router.patch('/:id/status', verifyJWT, authorizeRole(['shopOwner', 'admin']), updateOrderStatus);
 
 export default router; 

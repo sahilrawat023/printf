@@ -1,10 +1,10 @@
 import express from 'express';
-import { createRazorpayOrder, handleWebhook } from '../controllers/paymentController.js';
-import { requireAuth } from '../middleware/auth.js';
+import { createRazorpayOrder, verifyPayment } from '../controllers/paymentController.js';
+import verifyJWT from '../middleware/verifyJWT.js';
 
 const router = express.Router();
 
-router.post('/razorpay-order', requireAuth, createRazorpayOrder);
-router.post('/webhook', handleWebhook);
+router.post('/create-razorpay-order', verifyJWT, createRazorpayOrder);
+router.post('/verify', verifyJWT, verifyPayment);
 
 export default router; 

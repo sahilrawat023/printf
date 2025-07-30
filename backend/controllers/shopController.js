@@ -1,76 +1,72 @@
 import PrintShop from '../models/PrintShop.js';
-import cloudinary from '../config/cloudinary.js';
+import User from '../models/User.js';
 
-export const registerShop = async (req, res) => {
+// Create a new print shop
+export const createShop = async (req, res) => {
   try {
-    const { name, address, coordinates, services, pricing } = req.body;
-    let logoUrl = '';
-    if (req.file) {
-      const upload = await cloudinary.uploader.upload_stream({ resource_type: 'image' }, (error, result) => {
-        if (error) throw error;
-        logoUrl = result.secure_url;
-      });
-      upload.end(req.file.buffer);
-    }
-    const shop = new PrintShop({
+    const { name, address, location, services, pricing, logoUrl, autoLocationEnabled } = req.body;
+    const shop = await PrintShop.create({
       ownerId: req.user._id,
       name,
       address,
-      location: { type: 'Point', coordinates },
+      location,
       services,
       pricing,
       logoUrl,
+      autoLocationEnabled
     });
-    await shop.save();
-    res.status(201).json({ shop });
+    res.status(201).json(shop);
   } catch (err) {
-    res.status(400).json({ error: 'Failed to register shop' });
+    res.status(500).json({ error: 'Failed to create shop', details: err.message });
   }
 };
 
+// Update shop (only by owner or admin)
 export const updateShop = async (req, res) => {
   try {
-    const { name, address, coordinates, services, pricing } = req.body;
-    const shop = await PrintShop.findOne({ ownerId: req.user._id });
+    const shop = await PrintShop.findById(req.params.id);
     if (!shop) return res.status(404).json({ error: 'Shop not found' });
-    if (name) shop.name = name;
-    if (address) shop.address = address;
-    if (coordinates) shop.location.coordinates = coordinates;
-    if (services) shop.services = services;
-    if (pricing) shop.pricing = pricing;
-    if (req.file) {
-      const upload = await cloudinary.uploader.upload_stream({ resource_type: 'image' }, (error, result) => {
-        if (error) throw error;
-        shop.logoUrl = result.secure_url;
-      });
-      upload.end(req.file.buffer);
+    if (shop.ownerId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Unauthorized' });
     }
+    Object.assign(shop, req.body);
     await shop.save();
-    res.json({ shop });
+    res.json(shop);
   } catch (err) {
-    res.status(400).json({ error: 'Failed to update shop' });
+    res.status(500).json({ error: 'Failed to update shop', details: err.message });
   }
 };
 
-export const getMyShop = async (req, res) => {
-  const shop = await PrintShop.findOne({ ownerId: req.user._id });
-  if (!shop) return res.status(404).json({ error: 'Shop not found' });
-  res.json({ shop });
-};
-
+// Get nearby shops
 export const getNearbyShops = async (req, res) => {
   try {
-    const { lng, lat, maxDistance = 5000 } = req.query;
+    const { lat, lng } = req.query;
+    if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
     const shops = await PrintShop.find({
+      isActive: true,
       location: {
         $near: {
           $geometry: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
-          $maxDistance: parseInt(maxDistance),
-        },
-      },
-    });
-    res.json({ shops });
+          $maxDistance: 10000 // 10km
+        }
+      }
+    }).limit(10);
+    res.json(shops);
   } catch (err) {
-    res.status(400).json({ error: 'Failed to find nearby shops' });
+    res.status(500).json({ error: 'Failed to fetch shops', details: err.message });
   }
 }; 
+
+export const getMyShop = async (req, res) => {
+  try {
+    const shop = await PrintShop.findOne({ ownerId: req.user._id });
+
+    if (!shop) {
+      return res.status(404).json({ message: 'Shop not found for this user' });
+    }
+
+    res.status(200).json(shop);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};

@@ -1,13 +1,13 @@
 import express from 'express';
-import { registerShop, updateShop, getMyShop, getNearbyShops } from '../controllers/shopController.js';
-import { requireAuth, requireRole } from '../middleware/auth.js';
-import { uploadSingle } from '../middleware/upload.js';
+import { createShop, updateShop, getNearbyShops, getMyShop } from '../controllers/shopController.js';
+import verifyJWT from '../middleware/verifyJWT.js';
+import authorizeRole from '../middleware/authorizeRole.js';
 
 const router = express.Router();
 
-router.post('/', requireAuth, requireRole('shopOwner'), uploadSingle, registerShop);
-router.put('/', requireAuth, requireRole('shopOwner'), uploadSingle, updateShop);
-router.get('/me', requireAuth, requireRole('shopOwner'), getMyShop);
-router.get('/nearby', requireAuth, getNearbyShops);
+router.post('/create', verifyJWT, authorizeRole(['shopOwner', 'admin']), createShop);
+router.patch('/:id', verifyJWT, authorizeRole(['shopOwner', 'admin']), updateShop);
+router.get('/nearby', getNearbyShops);
+router.get('/me', verifyJWT, authorizeRole(['shopOwner']), getMyShop);
 
 export default router; 

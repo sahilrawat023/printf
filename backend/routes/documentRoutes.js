@@ -1,12 +1,11 @@
 import express from 'express';
-import { uploadDocument, getUserDocuments, deleteDocument } from '../controllers/documentController.js';
-import { requireAuth } from '../middleware/auth.js';
-import { uploadSingle } from '../middleware/upload.js';
+import { uploadDocument } from '../controllers/documentController.js';
+import verifyJWT from '../middleware/verifyJWT.js';
+import authorizeRole from '../middleware/authorizeRole.js';
+import upload from '../middleware/upload.js';
 
 const router = express.Router();
 
-router.post('/', requireAuth, uploadSingle, uploadDocument);
-router.get('/', requireAuth, getUserDocuments);
-router.delete('/:id', requireAuth, deleteDocument);
+router.post('/upload', verifyJWT, authorizeRole(['customer', 'shopOwner', 'admin']), upload.single('file'), uploadDocument);
 
 export default router; 
